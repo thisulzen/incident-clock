@@ -4,78 +4,41 @@ import { RULES_REVIEWED, TIME_ZONES } from "./rules.js";
 import { computeClocks } from "./engine.js";
 import { formatLocal, formatCountdown, formatElapsed, fromLocalInput, toLocalInput, HOUR, MINUTE } from "./time.js";
 import { toIcs } from "./ics.js";
+import { DEFAULT_PROFILE, PROFILE_BOOLS, blankIncident, cleanIncident, cleanProfile, parseImport, validateImport } from "./model.js";
+import { h } from "./dom.js";
 import * as store from "./store.js";
 
 const $ = (id) => document.getElementById(id);
 
-function h(tag, attrs = {}, ...kids) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v == null || v === false) continue;
-    if (k === "class") el.className = v;
-    else if (k === "text") el.textContent = v;
-    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? "" : v);
-  }
-  for (const kid of kids.flat()) {
-    if (kid == null || kid === false) continue;
-    el.append(kid.nodeType ? kid : document.createTextNode(kid));
-  }
-  return el;
-}
-
-const DEFAULT_PROFILE = {
-  name: "", timeZone: "Australia/Melbourne", privacyAct: false, turnoverOver3m: false, sociResponsible: false,
-  governmentBody: false, apraRegulated: false, victorianPublicSector: false,
-};
-
-const BOOLS = ["personalInfo", "apraMaterialInfosec", "apraMaterialOpRisk", "vpsInfosecIncident"];
-const TIMES = ["awareAt", "ndbSuspectedAt", "ndbBelievedAt", "asdOralReportAt", "ransomPaidAt", "apraControlWeaknessAt", "criticalOpOutsideToleranceAt"];
-const PROFILE_BOOLS = ["privacyAct", "turnoverOver3m", "sociResponsible", "governmentBody", "apraRegulated", "victorianPublicSector"];
-
 const nowMs = () => Date.now();
 const minuteFloor = (ms) => Math.floor(ms / MINUTE) * MINUTE;
-const newId = () => "inc-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-
-function blankIncident() {
-  return {
-    id: newId(), title: "", awareAt: new Date(minuteFloor(nowMs())).toISOString(), personalInfo: false,
-    ndbSuspectedAt: "", ndbBelievedAt: "", sociImpact: "none", asdOralReportAt: "", ransomPaidAt: "",
-    apraMaterialInfosec: false, apraControlWeaknessAt: "", apraMaterialOpRisk: false,
-    criticalOpOutsideToleranceAt: "", vpsInfosecIncident: false, notifications: {},
-  };
-}
-
 function sampleData() {
   const aware = minuteFloor(nowMs()) - 30 * HOUR;
   const iso = (ms) => new Date(ms).toISOString();
   return {
     profile: { ...DEFAULT_PROFILE, name: "Fernhill Utilities Pty Ltd", timeZone: "Australia/Melbourne", privacyAct: true, turnoverOver3m: true, sociResponsible: true },
     incident: {
-      ...blankIncident(), title: "Ransomware on billing systems", awareAt: iso(aware), personalInfo: true,
+      ...blankIncident(minuteFloor(nowMs())), title: "Ransomware on billing systems", awareAt: iso(aware), personalInfo: true,
       ndbSuspectedAt: iso(aware), sociImpact: "significant", asdOralReportAt: iso(aware + 10 * HOUR), ransomPaidAt: iso(aware + 20 * HOUR),
     },
   };
 }
 
+function loadProfile() {
+  try { return cleanProfile(store.read("ic.profile", {})); } catch { return { ...DEFAULT_PROFILE }; }
+}
+
 const state = {
-  profile: { ...DEFAULT_PROFILE, ...(store.read("ic.profile", {}) || {}) },
+  profile: loadProfile(),
   incidents: [],
-  activeId: null,
+  activeId: store.read("ic.active", null),
   openDone: new Set(),
   drafts: {},
 };
-if (!TIME_ZONES.includes(state.profile.timeZone)) state.profile.timeZone = DEFAULT_PROFILE.timeZone;
-{
-  const saved = store.read("ic.incidents", []);
-  state.incidents = Array.isArray(saved) ? saved.filter((i) => i && typeof i === "object" && i.id) : [];
-  state.activeId = store.read("ic.active", null);
+for (const raw of [].concat(store.read("ic.incidents", []))) {
+  try { state.incidents.push(cleanIncident(raw, raw.id)); } catch { /* drop a corrupt entry; raw may be null, which also lands here */ }
 }
-if (!state.incidents.length) {
-  const first = blankIncident();
-  state.incidents.push(first);
-  state.activeId = first.id;
-}
+if (!state.incidents.length) state.incidents.push(blankIncident(minuteFloor(nowMs())));
 if (!state.incidents.some((i) => i.id === state.activeId)) state.activeId = state.incidents[0].id;
 
 const active = () => state.incidents.find((i) => i.id === state.activeId);
@@ -106,16 +69,15 @@ function fillProfile() {
   if (!sel.options.length) for (const z of TIME_ZONES) sel.append(h("option", { value: z, text: z.replace("Australia/", "") + (z === "Australia/Melbourne" ? " (default)" : "") }));
   sel.value = tz();
   for (const [k, id] of Object.entries(PROFILE_IDS)) $(id).checked = !!state.profile[k];
-  document.querySelectorAll(".tz-label").forEach((e) => { e.textContent = tz(); });
   const on = PROFILE_BOOLS.filter((k) => state.profile[k]).length;
   $("profile-summary").textContent = `${state.profile.name || "Unnamed organisation"}, ${tz().replace("Australia/", "")}, ${on} setting${on === 1 ? "" : "s"} ticked`;
 }
 
 function bindProfile() {
-  $("p-name").addEventListener("input", (e) => { state.profile.name = e.target.value; saveProfile(); fillProfile(); renderAll(false); });
-  $("p-tz").addEventListener("change", (e) => { state.profile.timeZone = e.target.value; saveProfile(); fillProfile(); fillForm(); renderAll(false); });
+  $("p-name").addEventListener("input", (e) => { state.profile.name = e.target.value; saveProfile(); fillProfile(); renderAll(); });
+  $("p-tz").addEventListener("change", (e) => { state.profile.timeZone = e.target.value; saveProfile(); fillProfile(); fillForm(); renderAll(); });
   for (const [k, id] of Object.entries(PROFILE_IDS)) {
-    $(id).addEventListener("change", (e) => { state.profile[k] = e.target.checked; saveProfile(); fillProfile(); updateVisibility(); renderAll(false); });
+    $(id).addEventListener("change", (e) => { state.profile[k] = e.target.checked; saveProfile(); fillProfile(); updateVisibility(); renderAll(); });
   }
 }
 
@@ -154,7 +116,7 @@ function fillSelector() {
 }
 
 function bindForm() {
-  $("f-title").addEventListener("input", (e) => { active().title = e.target.value; saveIncidents(); fillSelector(); renderAll(false); });
+  $("f-title").addEventListener("input", (e) => { active().title = e.target.value; saveIncidents(); fillSelector(); renderAll(); });
   for (const [k, id] of Object.entries(TIME_FIELDS)) {
     $(id).addEventListener("change", (e) => {
       const inc = active();
@@ -165,7 +127,7 @@ function bindForm() {
         $("f-suspected").value = toLocalInput(inc.awareAt, tz());
       }
       saveIncidents();
-      renderAll(false);
+      renderAll();
     });
   }
   for (const [k, id] of Object.entries(BOOL_FIELDS)) {
@@ -178,10 +140,10 @@ function bindForm() {
       }
       saveIncidents();
       updateVisibility();
-      renderAll(false);
+      renderAll();
     });
   }
-  $("f-soci").addEventListener("change", (e) => { active().sociImpact = e.target.value; saveIncidents(); updateVisibility(); renderAll(false); });
+  $("f-soci").addEventListener("change", (e) => { active().sociImpact = e.target.value; saveIncidents(); updateVisibility(); renderAll(); });
 }
 
 /* ---------- incident management ---------- */
@@ -194,13 +156,13 @@ function setActive(id) {
   saveIncidents();
   fillSelector();
   fillForm();
-  renderAll(true);
+  renderAll();
 }
 
 function bindIncidentButtons() {
   $("incident-select").addEventListener("change", (e) => setActive(e.target.value));
   $("btn-new").addEventListener("click", () => {
-    const inc = blankIncident();
+    const inc = blankIncident(minuteFloor(nowMs()));
     state.incidents.push(inc);
     say("");
     setActive(inc.id);
@@ -219,7 +181,7 @@ function bindIncidentButtons() {
   $("btn-delete-no").addEventListener("click", () => { $("delete-confirm").hidden = true; });
   $("btn-delete-yes").addEventListener("click", () => {
     state.incidents = state.incidents.filter((i) => i.id !== state.activeId);
-    if (!state.incidents.length) state.incidents.push(blankIncident());
+    if (!state.incidents.length) state.incidents.push(blankIncident(minuteFloor(nowMs())));
     say("Incident deleted.");
     setActive(state.incidents[0].id);
   });
@@ -228,6 +190,7 @@ function bindIncidentButtons() {
 /* ---------- clock board ---------- */
 
 let lastSignature = "";
+const signature = (clocks) => clocks.map((c) => c.id + c.status).join("|");
 const titleOf = (id, clocks) => (clocks.find((c) => c.id === id) || {}).title || id;
 
 function statusLabel(c) {
@@ -256,10 +219,7 @@ function clockCard(c, all, now) {
     h("span", { class: "regulator", text: `${c.regulator} · ${c.regime}` }), chip));
   card.append(h("h3", { class: "deliverable", text: c.deliverable }));
 
-  const dueLine = c.dueAt
-    ? h("p", { class: "due" }, h("span", { class: "label", text: "Due " }), formatLocal(c.dueAt, tz()))
-    : h("p", { class: "due" }, h("span", { class: "label", text: "Due " }), "As soon as practicable");
-  card.append(dueLine);
+  card.append(h("p", { class: "due" }, h("span", { class: "label", text: "Due " }), c.dueAt ? formatLocal(c.dueAt, tz()) : "As soon as practicable"));
   card.append(h("p", { class: "started muted small", text: `Clock started ${formatLocal(c.startAt, tz())}` }));
 
   if (c.notification) card.append(h("p", { class: "countdown done-text", text: doneText(c) }));
@@ -270,7 +230,7 @@ function clockCard(c, all, now) {
     card.append(h("p", { class: "covered", text: `Covered by the "${titleOf(c.coveredBy, all)}" notification (CPS 234). If it is the same event, APRA does not need a second notification.` }));
   }
   card.append(h("p", { class: "citation" },
-    h("a", { href: c.source, target: "_blank", rel: "noopener" }, c.citation)));
+    h("a", { href: c.source, target: "_blank", rel: "noopener noreferrer" }, c.citation)));
   if (c.notes) card.append(h("p", { class: "notes muted small", text: c.notes }));
 
   if (c.notification) {
@@ -278,7 +238,7 @@ function clockCard(c, all, now) {
     card.append(h("button", { type: "button", class: "btn small-btn", onclick: () => {
       delete inc.notifications[c.id];
       saveIncidents();
-      renderAll(true);
+      renderAll();
     } }, "Undo"));
   } else if (state.openDone.has(c.id)) {
     const input = h("input", { type: "text", placeholder: "Optional note, for example a reference number", value: state.drafts[c.id] || "", "aria-label": "Note for this notification" });
@@ -289,14 +249,14 @@ function clockCard(c, all, now) {
       state.openDone.delete(c.id);
       delete state.drafts[c.id];
       saveIncidents();
-      renderAll(true);
+      renderAll();
     };
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); });
     card.append(h("div", { class: "done-form" }, input,
       h("button", { type: "button", class: "btn primary", onclick: commit }, "Record notification"),
-      h("button", { type: "button", class: "btn", onclick: () => { state.openDone.delete(c.id); renderAll(true); } }, "Cancel")));
+      h("button", { type: "button", class: "btn", onclick: () => { state.openDone.delete(c.id); renderAll(); } }, "Cancel")));
   } else {
-    card.append(h("button", { type: "button", class: "btn", onclick: () => { state.openDone.add(c.id); renderAll(true); setTimeout(() => {
+    card.append(h("button", { type: "button", class: "btn", onclick: () => { state.openDone.add(c.id); renderAll(); setTimeout(() => {
       const el = document.querySelector(`.clock[data-id="${c.id}"] .done-form input`);
       if (el) el.focus();
     }, 0); } }, "Mark as done"));
@@ -314,7 +274,7 @@ function renderBoard(now) {
   const board = $("board");
   const inc = active();
   const clocks = currentClocks(now);
-  lastSignature = clocks.map((c) => c.id + c.status).join("|");
+  lastSignature = signature(clocks);
   if (!inc.awareAt) {
     board.replaceChildren(h("div", { class: "empty" }, h("h3", { text: "Enter when the organisation became aware" }),
       h("p", { text: "Every deadline is measured from a start time. Add the awareness time above and the clocks will appear." })));
@@ -386,16 +346,15 @@ function layoutLabels(track) {
 
 /* ---------- tick ---------- */
 
-function renderAll(_full, now = nowMs()) {
+function renderAll(now = nowMs()) {
   renderTimeline(renderBoard(now), now);
 }
 
 function tick() {
   const now = nowMs();
   const clocks = currentClocks(now);
-  const sig = clocks.map((c) => c.id + c.status).join("|");
-  if (sig !== lastSignature) {
-    renderAll(true, now);
+  if (signature(clocks) !== lastSignature) {
+    renderAll(now);
     return;
   }
   for (const c of clocks) {
@@ -421,53 +380,6 @@ function download(name, type, text) {
 
 const slug = (s) => (s || "incident").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "incident";
 
-export function validateImport(data) {
-  const fail = (m) => { throw new Error(m); };
-  if (!data || typeof data !== "object" || Array.isArray(data)) fail("The file is not an Incident Clock export.");
-  if (data.format !== "incident-clock") fail("The file is not an Incident Clock export (missing format marker).");
-  const src = data.incident;
-  if (!src || typeof src !== "object" || Array.isArray(src)) fail("The file has no incident.");
-  const inc = blankIncident();
-  if (src.title != null && typeof src.title !== "string") fail("The incident title must be text.");
-  inc.title = (src.title || "").slice(0, 200);
-  for (const k of TIMES) {
-    const v = src[k];
-    if (v == null || v === "") { inc[k] = ""; continue; }
-    if (typeof v !== "string" || Number.isNaN(Date.parse(v))) fail(`"${k}" is not a valid date and time.`);
-    inc[k] = new Date(v).toISOString();
-  }
-  if (!inc.awareAt) fail("The incident has no awareness time.");
-  for (const k of BOOLS) {
-    if (src[k] != null && typeof src[k] !== "boolean") fail(`"${k}" must be true or false.`);
-    inc[k] = !!src[k];
-  }
-  if (src.sociImpact != null && !["none", "relevant", "significant"].includes(src.sociImpact)) fail('"sociImpact" must be none, relevant or significant.');
-  inc.sociImpact = src.sociImpact || "none";
-  inc.notifications = {};
-  if (src.notifications != null) {
-    if (typeof src.notifications !== "object" || Array.isArray(src.notifications)) fail('"notifications" must be an object.');
-    for (const [id, n] of Object.entries(src.notifications)) {
-      if (!n || typeof n !== "object" || typeof n.at !== "string" || Number.isNaN(Date.parse(n.at))) fail(`Notification "${id}" has no valid time.`);
-      inc.notifications[id] = { at: new Date(n.at).toISOString(), note: typeof n.note === "string" ? n.note.slice(0, 500) : "" };
-    }
-  }
-  let profile = null;
-  if (data.profile != null) {
-    const p = data.profile;
-    if (typeof p !== "object" || Array.isArray(p)) fail("The profile must be an object.");
-    profile = { ...DEFAULT_PROFILE, name: typeof p.name === "string" ? p.name.slice(0, 200) : "" };
-    if (p.timeZone != null) {
-      if (!TIME_ZONES.includes(p.timeZone)) fail("The profile time zone is not one this tool supports.");
-      profile.timeZone = p.timeZone;
-    }
-    for (const k of PROFILE_BOOLS) {
-      if (p[k] != null && typeof p[k] !== "boolean") fail(`Profile "${k}" must be true or false.`);
-      profile[k] = !!p[k];
-    }
-  }
-  return { incident: inc, profile };
-}
-
 function bindExport() {
   $("btn-json").addEventListener("click", () => {
     const inc = active();
@@ -480,10 +392,7 @@ function bindExport() {
     e.target.value = "";
     if (!file) return;
     try {
-      if (file.size > 1024 * 1024) throw new Error("The file is too large to be an Incident Clock export.");
-      let data;
-      try { data = JSON.parse(await file.text()); } catch { throw new Error("The file is not valid JSON."); }
-      const { incident, profile } = validateImport(data);
+      const { incident, profile } = validateImport(parseImport(await file.text()));
       if (profile) { state.profile = profile; saveProfile(); fillProfile(); }
       state.incidents.push(incident);
       setActive(incident.id);
@@ -501,6 +410,7 @@ function bindExport() {
     download(`incident-clock-${slug(inc.title)}.ics`, "text/calendar", toIcs(clocks, inc, now));
     say("Downloaded a calendar file with one event per timed deadline.");
   });
+  $("incident-form").addEventListener("submit", (e) => e.preventDefault());
   $("btn-print").addEventListener("click", () => window.print());
   window.addEventListener("beforeprint", buildReport);
 }
@@ -558,7 +468,7 @@ function init() {
   bindForm();
   bindIncidentButtons();
   bindExport();
-  renderAll(true);
+  renderAll();
   setInterval(tick, 1000);
 }
 
