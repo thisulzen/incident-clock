@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>Incident Clock</title>
   <meta name="description" content="Turns a cyber incident into every Australian regulatory reporting deadline it triggers, with live countdowns and the section of law behind each one.">
   <link rel="stylesheet" href="css/style.css">
@@ -62,7 +64,7 @@
         </span>
       </div>
 
-      <form id="incident-form" autocomplete="off" onsubmit="return false">
+      <form id="incident-form" autocomplete="off">
         <div class="grid two">
           <label class="field">Title
             <input type="text" id="f-title" placeholder="For example, Ransomware on billing systems">
@@ -159,7 +161,7 @@
   <footer class="site-footer">
     <div class="wrap">
       <p>Rules reviewed 5 November 2026. General information, not legal advice. Check obligations against the legislation and your own advice.</p>
-      <p><a href="https://github.com/thisulzen/incident-clock" target="_blank" rel="noopener">Source on GitHub</a></p>
+      <p><a href="https://github.com/thisulzen/incident-clock" target="_blank" rel="noopener noreferrer">Source on GitHub</a></p>
     </div>
   </footer>
 
