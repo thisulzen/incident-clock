@@ -115,11 +115,11 @@ legend { font-weight: 700; color: var(--navy); padding: 0 6px; font-size: .92rem
 .marker.done { background: #2f9e62; }
 .marker.start { background: var(--navy); }
 .marker .label { position: absolute; left: 50%; transform: translateX(-50%); font-size: .72rem; color: var(--ink); white-space: nowrap; background: var(--white); padding: 0 3px; }
-.lbl-up { bottom: 22px; }
+.marker.start .lbl-up { bottom: 22px; left: auto; right: -6px; transform: none; }
 .lbl-down.l0 { top: 24px; }
 .lbl-down.l1 { top: 44px; }
 .lbl-down.l2 { top: 64px; }
-.now-line { position: absolute; top: 20px; bottom: 6px; width: 0; border-left: 2px dashed var(--navy); }
+.now-line { position: absolute; top: 22px; bottom: 6px; width: 0; border-left: 2px dashed var(--navy); }
 .now-line span { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: .72rem; font-weight: 700; background: var(--navy); color: var(--white); padding: 0 6px; border-radius: 4px; }
 
 .message { margin: 12px 0 0; padding: 8px 12px; border-radius: 7px; background: var(--blue-bg); color: var(--navy-2); font-size: .92rem; }

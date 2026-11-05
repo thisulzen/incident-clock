@@ -355,8 +355,12 @@ function renderTimeline(clocks, now) {
   track.append(h("div", { class: "track-line" }));
   track.append(h("div", { class: "marker start", style: `left:${pct(Date.parse(inc.awareAt))}` },
     h("span", { class: "label lbl-up", text: "Aware" })));
-  sorted.forEach((c, idx) => {
-    const lvl = idx % 3;
+  let lvl = 0;
+  let prevPos = -Infinity;
+  sorted.forEach((c) => {
+    const pos = (Date.parse(c.dueAt) - lo) / total;
+    lvl = pos - prevPos < 0.16 ? (lvl + 1) % 3 : 0;
+    prevPos = pos;
     track.append(h("div", { class: `marker ${c.status}`, style: `left:${pct(Date.parse(c.dueAt))}`, title: `${c.deliverable}: ${formatLocal(c.dueAt, tz())}` },
       h("span", { class: `label lbl-down l${lvl}`, text: `${c.regulator}${c.id.includes("written") ? " (written)" : ""}` })));
   });
