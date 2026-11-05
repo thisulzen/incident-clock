@@ -3,7 +3,6 @@
 
 export const HOUR = 3600000;
 export const MINUTE = 60000;
-export const DAY = 24 * HOUR;
 
 const fmtCache = new Map();
 function dtf(timeZone) {

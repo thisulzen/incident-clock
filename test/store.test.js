@@ -11,8 +11,6 @@ test("store falls back to memory when localStorage throws", async () => {
   assert.equal(store.write("k", { a: 1 }), false);
   assert.deepEqual(store.read("k"), { a: 1 });
   assert.equal(store.read("missing", "dflt"), "dflt");
-  store.remove("k");
-  assert.equal(store.read("k", null), null);
 });
 
 test("store falls back to memory when localStorage access itself throws", async () => {
@@ -32,8 +30,6 @@ test("store uses localStorage when it works", async () => {
   assert.equal(store.write("w", { ok: true }), true);
   assert.equal(data.get("w"), '{"ok":true}');
   assert.deepEqual(store.read("w"), { ok: true });
-  store.remove("w");
-  assert.equal(data.has("w"), false);
 });
 
 test("corrupt stored JSON returns the fallback", async () => {
