@@ -1,0 +1,11 @@
+{
+  "name": "incident-clock",
+  "version": "1.0.0",
+  "description": "Turns a cyber incident into every Australian regulatory reporting deadline it triggers.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  }
+}
