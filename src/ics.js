@@ -4,8 +4,9 @@ const enc = new TextEncoder();
 
 export function escapeText(s) {
   return String(s ?? "")
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "")
     .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\;")
+    .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
     .replace(/\r\n|\r|\n/g, "\\n");
 }
@@ -39,7 +40,7 @@ export function toIcs(clocks, incident, nowMs = Date.now()) {
   const key = incident.id || incident.title || "incident";
   for (const c of clocks) {
     if (!c.dueAt) continue;
-    const desc = [`${c.citation}`, `Regulator: ${c.regulator}`, c.source].join("\n");
+    const desc = [c.citation, `Regulator: ${c.regulator}`, c.source].join("\n");
     lines.push(
       "BEGIN:VEVENT",
       `UID:${escapeText(key).replace(/\s+/g, "-")}-${c.id}@incident-clock`,

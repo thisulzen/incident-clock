@@ -30,7 +30,7 @@ test("ICS UIDs are stable", () => {
 });
 
 test("ICS escapes commas, semicolons, backslashes and newlines", () => {
-  assert.equal(escapeText("a,b;c\\d\ne"), "a\\,b\;c\\\\d\\ne");
+  assert.equal(escapeText("a,b;c\\d\ne"), "a\\,b\\;c\\\\d\\ne");
   const ics = toIcs(clocks, i, NOW).replace(/\r\n /g, "");
   assert.match(ics, /s30BC\\, Security of Critical/);
   assert.match(ics, /SUMMARY:Due: Report the critical cyber security incident to ASD's ACSC/);
