@@ -354,19 +354,34 @@ function renderTimeline(clocks, now) {
   const track = h("div", { class: "track" });
   track.append(h("div", { class: "track-line" }));
   track.append(h("div", { class: "marker start", style: `left:${pct(Date.parse(inc.awareAt))}` },
-    h("span", { class: "label lbl-up", text: "Aware" })));
-  let lvl = 0;
-  let prevPos = -Infinity;
-  sorted.forEach((c) => {
-    const pos = (Date.parse(c.dueAt) - lo) / total;
-    lvl = pos - prevPos < 0.16 ? (lvl + 1) % 3 : 0;
-    prevPos = pos;
+    h("span", { class: "label", text: "Aware" })));
+  for (const c of sorted) {
     track.append(h("div", { class: `marker ${c.status}`, style: `left:${pct(Date.parse(c.dueAt))}`, title: `${c.deliverable}: ${formatLocal(c.dueAt, tz())}` },
-      h("span", { class: `label lbl-down l${lvl}`, text: `${c.regulator}${c.id.includes("written") ? " (written)" : ""}` })));
-  });
+      h("span", { class: "label", text: `${c.regulator}${c.id.includes("written") ? " (written)" : ""}` })));
+  }
   track.append(h("div", { class: "now-line", style: `left:${pct(now)}` }, h("span", { text: "Now" })));
   box.replaceChildren(track,
     h("p", { class: "muted small", text: `From ${formatLocal(inc.awareAt, tz())} to ${formatLocal(new Date(endMs).toISOString(), tz())}. Hover a marker for its deliverable.` }));
+  layoutLabels(track);
+}
+
+/** Put each label on the first row below the line where it clears the labels already there. */
+function layoutLabels(track) {
+  const rows = [];
+  const tw = track.clientWidth;
+  const markers = [...track.querySelectorAll(".marker")].sort((a, b) => a.offsetLeft - b.offsetLeft);
+  for (const m of markers) {
+    const el = m.querySelector(".label");
+    const w = el.offsetWidth;
+    const cx = m.offsetLeft + 8;
+    const l = Math.max(-16, Math.min(cx - w / 2, tw + 16 - w));
+    let r = rows.findIndex((row) => row.every(([a, b]) => l >= b + 8 || l + w <= a - 8));
+    if (r < 0) { rows.push([]); r = rows.length - 1; }
+    rows[r].push([l, l + w]);
+    el.style.left = `${l - m.offsetLeft}px`;
+    el.style.top = `${24 + r * 20}px`;
+  }
+  track.style.height = `${84 + Math.max(rows.length, 1) * 20}px`;
 }
 
 /* ---------- tick ---------- */
