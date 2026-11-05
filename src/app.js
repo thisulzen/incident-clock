@@ -174,6 +174,7 @@ function bindIncidentButtons() {
     saveProfile();
     state.incidents.push(s.incident);
     fillProfile();
+    $("profile-details").open = false;
     say("Loaded the sample incident and the Fernhill Utilities profile.");
     setActive(s.incident.id);
   });
@@ -219,23 +220,23 @@ function clockCard(c, all, now) {
     h("span", { class: "regulator", text: `${c.regulator} · ${c.regime}` }), chip));
   card.append(h("h3", { class: "deliverable", text: c.deliverable }));
 
-  card.append(h("p", { class: "due" }, h("span", { class: "label", text: "Due " }), c.dueAt ? formatLocal(c.dueAt, tz()) : "As soon as practicable"));
-  card.append(h("p", { class: "started muted small", text: `Clock started ${formatLocal(c.startAt, tz())}` }));
-
   if (c.notification) card.append(h("p", { class: "countdown done-text", text: doneText(c) }));
   else card.append(h("p", { class: "countdown", "data-role": "countdown", text: countdownText(c, now) }));
 
-  card.append(h("p", { class: "why" }, h("strong", { text: "Why this clock started: " }), c.why));
+  card.append(h("p", { class: "due" }, h("span", { class: "label", text: "Due " }), h("span", { class: "when", text: c.dueAt ? formatLocal(c.dueAt, tz()) : "As soon as practicable" })));
+  card.append(h("p", { class: "started", text: `Clock started ${formatLocal(c.startAt, tz())}` }));
+
+  card.append(h("p", { class: "why" }, h("strong", { text: "Why this clock started" }), " ", c.why));
   if (c.coveredBy) {
     card.append(h("p", { class: "covered", text: `Covered by the "${titleOf(c.coveredBy, all)}" notification (CPS 234). If it is the same event, APRA does not need a second notification.` }));
   }
   card.append(h("p", { class: "citation" },
     h("a", { href: c.source, target: "_blank", rel: "noopener noreferrer" }, c.citation)));
-  if (c.notes) card.append(h("p", { class: "notes muted small", text: c.notes }));
+  if (c.notes) card.append(h("p", { class: "notes", text: c.notes }));
 
   if (c.notification) {
-    if (c.notification.note) card.append(h("p", { class: "note-text small" }, h("strong", { text: "Note: " }), c.notification.note));
-    card.append(h("button", { type: "button", class: "btn small-btn", onclick: () => {
+    if (c.notification.note) card.append(h("p", { class: "note-text" }, h("strong", { text: "Note: " }), c.notification.note));
+    card.append(h("button", { type: "button", class: "btn small", onclick: () => {
       delete inc.notifications[c.id];
       saveIncidents();
       renderAll();
@@ -276,15 +277,15 @@ function renderBoard(now) {
   const clocks = currentClocks(now);
   lastSignature = signature(clocks);
   if (!inc.awareAt) {
-    board.replaceChildren(h("div", { class: "empty" }, h("h3", { text: "Enter when the organisation became aware" }),
-      h("p", { text: "Every deadline is measured from a start time. Add the awareness time above and the clocks will appear." })));
+    board.replaceChildren(h("div", { class: "empty" }, h("h3", { text: "Set the awareness time" }),
+      h("p", { text: "Every deadline runs from a start time. Enter when the organisation became aware in the incident panel and the clocks appear." })));
     return clocks;
   }
   if (!clocks.length) {
     board.replaceChildren(h("div", { class: "empty" },
       h("h3", { text: "No reporting clocks apply yet" }),
-      h("p", { text: "Clocks start when the profile and the incident together meet a rule's trigger. For example, the Privacy Act clock needs an APP entity and personal information; the SOCI clocks need a responsible entity and an impact level; the ransomware clock needs a payment time and a business over $3 million turnover or a SOCI responsible entity." }),
-      h("p", { class: "muted", text: "Tick what applies in the organisation profile and the incident form, or load the sample incident to see a full board." })));
+      h("p", { text: "A clock starts when the profile and the incident together meet a rule's trigger. The Privacy Act clock needs an APP entity and personal information. The SOCI clocks need a responsible entity and an impact level. The ransomware clock needs a payment time and either turnover over $3 million or a SOCI responsible entity." }),
+      h("p", { class: "muted", text: "Tick what applies in the profile and the incident panel, or load the sample incident to see a full board." })));
     return clocks;
   }
   board.replaceChildren(...clocks.map((c) => clockCard(c, clocks, now)));
@@ -298,7 +299,7 @@ function renderTimeline(clocks, now) {
   const inc = active();
   const timed = clocks.filter((c) => c.dueAt);
   if (!inc.awareAt || !timed.length) {
-    box.replaceChildren(h("p", { class: "muted", text: "The timeline appears once there is at least one deadline with a due time." }));
+    box.replaceChildren(h("p", { class: "muted", text: "The timeline appears once a deadline has a due time." }));
     return;
   }
   const startMs = Math.min(Date.parse(inc.awareAt), now);
@@ -321,7 +322,7 @@ function renderTimeline(clocks, now) {
   }
   track.append(h("div", { class: "now-line", style: `left:${pct(now)}` }, h("span", { text: "Now" })));
   box.replaceChildren(track,
-    h("p", { class: "muted small", text: `From ${formatLocal(inc.awareAt, tz())} to ${formatLocal(new Date(endMs).toISOString(), tz())}. Hover a marker for its deliverable.` }));
+    h("p", { class: "muted small", text: `From ${formatLocal(inc.awareAt, tz())} to ${formatLocal(new Date(endMs).toISOString(), tz())}. Hover a marker to see the deliverable.` }));
   layoutLabels(track);
 }
 
@@ -339,9 +340,9 @@ function layoutLabels(track) {
     if (r < 0) { rows.push([]); r = rows.length - 1; }
     rows[r].push([l, l + w]);
     el.style.left = `${l - m.offsetLeft}px`;
-    el.style.top = `${24 + r * 20}px`;
+    el.style.top = `${28 + r * 24}px`;
   }
-  track.style.height = `${84 + Math.max(rows.length, 1) * 20}px`;
+  track.style.height = `${72 + Math.max(rows.length, 1) * 24}px`;
 }
 
 /* ---------- tick ---------- */
@@ -462,6 +463,7 @@ function buildReport() {
 
 function init() {
   fillProfile();
+  $("profile-details").open = !state.profile.name;
   fillSelector();
   fillForm();
   bindProfile();

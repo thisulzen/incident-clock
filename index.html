@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>Incident Clock</title>
+  <title>Incident Clock: Australian cyber incident reporting deadlines</title>
   <meta name="description" content="Turns a cyber incident into every Australian regulatory reporting deadline it triggers, with live countdowns and the section of law behind each one.">
   <link rel="stylesheet" href="css/style.css">
   <script type="module" src="src/app.js"></script>
@@ -14,36 +14,35 @@
   <header class="site-header">
     <div class="wrap">
       <h1>Incident Clock</h1>
-      <p>Runs entirely in your browser. Nothing is sent anywhere.</p>
+      <p>Runs in your browser. Nothing is sent anywhere.</p>
     </div>
   </header>
 
-  <main class="wrap">
-    <section class="card" aria-labelledby="profile-h">
-      <details id="profile-details" open>
-        <summary><h2 id="profile-h">Organisation profile</h2><span class="summary-hint" id="profile-summary"></span></summary>
-        <div class="grid two">
-          <label class="field">Organisation name
-            <input type="text" id="p-name" autocomplete="organization">
-          </label>
-          <label class="field">Time zone
-            <select id="p-tz"></select>
-          </label>
-        </div>
-        <div class="checks">
-          <label class="check"><input type="checkbox" id="p-privacy"><span>Covered by the Privacy Act 1988 (an APP entity)
-            <small>Most businesses over $3 million turnover, health service providers and some others; generally not state government agencies.</small></span></label>
-          <label class="check"><input type="checkbox" id="p-turnover"><span>Annual turnover over $3 million</span></label>
-          <label class="check"><input type="checkbox" id="p-soci"><span>Responsible entity for a critical infrastructure asset covered by Part 2B of the SOCI Act</span></label>
-          <label class="check"><input type="checkbox" id="p-gov"><span>Commonwealth or state body
-            <small>Excludes the ransomware payment reporting obligation.</small></span></label>
-          <label class="check"><input type="checkbox" id="p-apra"><span>APRA-regulated entity</span></label>
-          <label class="check"><input type="checkbox" id="p-vps"><span>Victorian public sector organisation subject to Part 4 of the Privacy and Data Protection Act 2014 (VPDSS)</span></label>
-        </div>
-        <p class="muted small">Saved automatically in this browser.</p>
-      </details>
+  <main class="wrap layout">
+    <div class="primary">
+      <p id="message" class="message" role="status" hidden></p>
+    <section aria-labelledby="board-h">
+      <h2 id="board-h" class="section-title">Deadlines</h2>
+      <div id="board" class="board" aria-live="off"></div>
     </section>
 
+    <section class="card" aria-labelledby="timeline-h" id="timeline-card">
+      <h2 id="timeline-h">Timeline</h2>
+      <div id="timeline" class="timeline"></div>
+    </section>
+
+    <section class="card" aria-labelledby="export-h" id="export-card">
+      <h2 id="export-h">Export</h2>
+      <div class="btn-row">
+        <button type="button" class="btn" id="btn-json">Download incident (JSON)</button>
+        <label class="btn" for="file-import" id="import-label" tabindex="0" role="button">Import incident (JSON)</label>
+        <input type="file" id="file-import" accept="application/json,.json" hidden>
+        <button type="button" class="btn" id="btn-ics">Add deadlines to calendar (.ics)</button>
+        <button type="button" class="btn" id="btn-print">Print report</button>
+      </div>
+    </section>
+    </div>
+    <aside class="side" aria-label="Incident and organisation inputs">
     <section class="card" aria-labelledby="incident-h">
       <h2 id="incident-h">Incident</h2>
       <div class="toolbar">
@@ -64,12 +63,14 @@
         </span>
       </div>
 
+      <details class="form-details" open>
+        <summary><h3>Incident details</h3></summary>
       <form id="incident-form" autocomplete="off">
         <div class="grid two">
           <label class="field">Title
             <input type="text" id="f-title" placeholder="For example, Ransomware on billing systems">
           </label>
-          <label class="field">When did the organisation become aware? <em class="req">required</em>
+          <label class="field">When did the organisation become aware? <em class="req">Required</em>
             <input type="datetime-local" id="f-aware" required>
             <small>Entered in the profile time zone (<span class="tz-label"></span>).</small>
           </label>
@@ -133,29 +134,35 @@
           <label class="check"><input type="checkbox" id="f-vpsinc"><span>Information security incident affecting public sector information</span></label>
         </fieldset>
       </form>
+      </details>
     </section>
 
-    <section aria-labelledby="board-h">
-      <h2 id="board-h" class="section-title">Deadlines</h2>
-      <div id="board" class="board" aria-live="off"></div>
+    <section class="card" aria-labelledby="profile-h">
+      <details id="profile-details" open>
+        <summary><h2 id="profile-h">Organisation profile</h2><span class="summary-hint" id="profile-summary"></span></summary>
+        <div class="grid two">
+          <label class="field">Organisation name
+            <input type="text" id="p-name" autocomplete="organization">
+          </label>
+          <label class="field">Time zone
+            <select id="p-tz"></select>
+          </label>
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="p-privacy"><span>Covered by the Privacy Act 1988 (an APP entity)
+            <small>Most businesses over $3 million turnover, health service providers and some others; generally not state government agencies.</small></span></label>
+          <label class="check"><input type="checkbox" id="p-turnover"><span>Annual turnover over $3 million</span></label>
+          <label class="check"><input type="checkbox" id="p-soci"><span>Responsible entity for a critical infrastructure asset covered by Part 2B of the SOCI Act</span></label>
+          <label class="check"><input type="checkbox" id="p-gov"><span>Commonwealth or state body
+            <small>Excludes the ransomware payment reporting obligation.</small></span></label>
+          <label class="check"><input type="checkbox" id="p-apra"><span>APRA-regulated entity</span></label>
+          <label class="check"><input type="checkbox" id="p-vps"><span>Victorian public sector organisation subject to Part 4 of the Privacy and Data Protection Act 2014 (VPDSS)</span></label>
+        </div>
+        <p class="muted small">Saved in this browser.</p>
+      </details>
     </section>
 
-    <section class="card" aria-labelledby="timeline-h" id="timeline-card">
-      <h2 id="timeline-h">Timeline</h2>
-      <div id="timeline" class="timeline"></div>
-    </section>
-
-    <section class="card" aria-labelledby="export-h" id="export-card">
-      <h2 id="export-h">Export</h2>
-      <div class="btn-row">
-        <button type="button" class="btn" id="btn-json">Download incident (JSON)</button>
-        <label class="btn" for="file-import" id="import-label" tabindex="0" role="button">Import incident (JSON)</label>
-        <input type="file" id="file-import" accept="application/json,.json" hidden>
-        <button type="button" class="btn" id="btn-ics">Add deadlines to calendar (.ics)</button>
-        <button type="button" class="btn" id="btn-print">Print report</button>
-      </div>
-      <p id="message" class="message" role="status" hidden></p>
-    </section>
+    </aside>
   </main>
 
   <footer class="site-footer">
